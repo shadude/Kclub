@@ -1,8 +1,8 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import networkx as nx
-import sys
 
 G = nx.karate_club_graph()
 pos = nx.spring_layout(G)
@@ -22,7 +22,7 @@ def split(G,node_list,depth = 0):
     B = global_B[np.ix_(node_list,node_list)]
     e,v = np.linalg.eig(B)
     
-    s = v[np.argmax(e)]
+    s = v[:,np.argmax(e)]
     n1 = []
     n2 = []
     for i in range(s.shape[0]):
@@ -59,7 +59,6 @@ def split(G,node_list,depth = 0):
         else:
             iter_tree_communities[depth] = [node_list]
         return
-    print(depth)
     split(g1,n1,depth+1)
     split(g2,n2,depth+1)
 
@@ -84,9 +83,45 @@ for key,val in sorted(iter_tree_layers.items()):
     for key2,val2 in sorted(iter_tree_communities.items()):
         if key>key2:
             newval = newval + val2
-            print(newval)
-    val = newval
+    iter_tree_layers[key] = newval
+
 for key,val in sorted(iter_tree_layers.items()):
     draw(val)
     plt.show()
-    print(key,":",val)
+
+node_metrics = {a:{} for a in global_nodelist}
+
+for key,val in sorted(iter_tree_layers.items()):
+    for i in val:
+        Ga = G.subgraph(i)
+        d = nx.degree_centrality(Ga)
+        b = nx.betweenness_centrality(Ga)
+        cc = nx.closeness_centrality(Ga)
+        c = nx.clustering(Ga)
+        for j in i:
+            node_metrics[j][key] = [d[j],b[j],cc[j],c[j]]
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+#ax2 = fig.add_subplot(512)
+#ax3 = fig.add_subplot(513)
+#ax4 = fig.add_subplot(514)
+ax5 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
+cmap = plt.get_cmap('jet')
+colors = [cmap(i) for i in np.linspace(0,1,34)]
+print(len(colors))
+for k,v in node_metrics.items():
+    depths = list(v.keys())
+    metrics = np.array(list(v.values()))
+    ax1.scatter(depths,metrics[:,0],color = colors[k])
+    ax1.plot(depths,metrics[:,0],color = colors[k])
+    #ax2.scatter(depths,metrics[:,1],color = colors[k])
+    #ax3.scatter(depths,metrics[:,2],color = colors[k])
+    #ax4.scatter(depths,metrics[:,3],color = colors[k])
+bounds = np.linspace(0, 33, 34)
+norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+cmap = mpl.colors.LinearSegmentedColormap.from_list(
+    'Custom cmap', colors, cmap.N)
+cb = mpl.colorbar.ColorbarBase(ax5, cmap=cmap, norm=norm,
+    spacing='proportional', ticks=bounds, boundaries=bounds, format='%1i')
+plt.show()
+
